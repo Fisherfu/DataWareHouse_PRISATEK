@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>庫存整合看板 | Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F6FA;
+    --surface:#FFFFFF;
+    --surface-alt:#F7F8FC;
+    --border:#DFE3EA;
+    --text:#1A2130;
+    --text-muted:#667085;
+    --text-faint:#98A2B3;
+    --accent:#2955D9;
+    --accent-strong:#1E3FAE;
+    --accent-weak:#EAF0FE;
+    --ok:#1E9D6B;
+    --ok-weak:#E5F6EE;
+    --warn:#C7790A;
+    --warn-weak:#FCF0DD;
+    --danger:#D14343;
+    --danger-weak:#FBE9E8;
+    --shadow: 0 1px 2px rgba(20,25,40,0.04), 0 8px 24px -12px rgba(20,25,40,0.12);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10151F;
+      --surface:#161D2A;
+      --surface-alt:#1C2433;
+      --border:#2A3244;
+      --text:#E7EAF0;
+      --text-muted:#93A0B5;
+      --text-faint:#66728A;
+      --accent:#6C8EFF;
+      --accent-strong:#8FA6FF;
+      --accent-weak:rgba(108,142,255,0.16);
+      --ok:#34C98A;
+      --ok-weak:rgba(52,201,138,0.14);
+      --warn:#E0A23C;
+      --warn-weak:rgba(224,162,60,0.14);
+      --danger:#E5675A;
+      --danger-weak:rgba(229,103,90,0.14);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10151F;
+    --surface:#161D2A;
+    --surface-alt:#1C2433;
+    --border:#2A3244;
+    --text:#E7EAF0;
+    --text-muted:#93A0B5;
+    --text-faint:#66728A;
+    --accent:#6C8EFF;
+    --accent-strong:#8FA6FF;
+    --accent-weak:rgba(108,142,255,0.16);
+    --ok:#34C98A;
+    --ok-weak:rgba(52,201,138,0.14);
+    --warn:#E0A23C;
+    --warn-weak:rgba(224,162,60,0.14);
+    --danger:#E5675A;
+    --danger-weak:rgba(229,103,90,0.14);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Noto Sans TC','Sora',sans-serif;
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .num{ font-family:'IBM Plex Mono','Noto Sans TC',monospace; font-variant-numeric:tabular-nums; }
+
+  .app{ display:flex; min-height:100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:224px;
+    flex-shrink:0;
+    background:var(--surface);
+    border-right:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    position:sticky;
+    top:0;
+    height:100vh;
+  }
+  .brand{
+    padding:22px 20px 18px;
+    font-family:'Sora','Noto Sans TC',sans-serif;
+    font-weight:700;
+    font-size:16px;
+    letter-spacing:0.01em;
+    border-bottom:1px solid var(--border);
+    display:flex;
+    align-items:center;
+    gap:9px;
+  }
+  .brand-mark{
+    width:26px;height:26px;border-radius:7px;
+    background:linear-gradient(150deg,var(--accent),var(--accent-strong));
+    flex-shrink:0;
+  }
+  nav.nav{ padding:14px 12px; display:flex; flex-direction:column; gap:2px; flex:1; }
+  .nav-item{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 12px;
+    border-radius:8px;
+    color:var(--text-muted);
+    font-size:13.5px;
+    font-weight:500;
+    cursor:pointer;
+    border:none;
+    background:none;
+    text-align:left;
+    width:100%;
+    font-family:inherit;
+    transition:background .12s ease, color .12s ease;
+  }
+  .nav-item .dot{ width:6px;height:6px;border-radius:50%; background:var(--text-faint); flex-shrink:0; }
+  .nav-item:hover{ background:var(--surface-alt); color:var(--text); }
+  .nav-item.active{ background:var(--accent-weak); color:var(--accent-strong); }
+  .nav-item.active .dot{ background:var(--accent); }
+  .sidebar-foot{
+    padding:14px 20px;
+    border-top:1px solid var(--border);
+    display:flex; align-items:center; gap:10px;
+  }
+  .avatar{
+    width:30px;height:30px;border-radius:50%;
+    background:var(--accent-weak); color:var(--accent-strong);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:600; font-size:12.5px; flex-shrink:0;
+  }
+  .sidebar-foot .who .name{ font-size:13px; font-weight:600; }
+  .sidebar-foot .who .role{ font-size:11.5px; color:var(--text-muted); display:flex; align-items:center; gap:5px; }
+  .sidebar-foot .who .role::before{ content:""; width:6px;height:6px;border-radius:50%; background:var(--ok); }
+
+  /* ---------- Main ---------- */
+  .main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+
+  .topbar{
+    position:sticky; top:0; z-index:5;
+    background:var(--bg);
+    padding:20px 28px 14px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    border-bottom:1px solid transparent;
+  }
+  .topbar h1{
+    font-family:'Sora','Noto Sans TC',sans-serif;
+    font-size:19px; font-weight:700; margin:0;
+    text-wrap:balance;
+  }
+  .topbar-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .field{
+    display:flex; align-items:center; gap:8px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:9px;
+    padding:8px 12px;
+    font-size:13px;
+    color:var(--text);
+  }
+  .field select, .field input{
+    border:none; outline:none; background:none; color:var(--text);
+    font-family:inherit; font-size:13px;
+  }
+  .field.search{ min-width:260px; color:var(--text-muted); }
+  .field.search input{ width:100%; color:var(--text); }
+  .field.search svg{ flex-shrink:0; }
+  .btn-primary{
+    display:flex; align-items:center; gap:7px;
+    background:var(--accent); color:#fff;
+    border:none; border-radius:9px;
+    padding:9px 15px;
+    font-family:inherit; font-size:13px; font-weight:600;
+    cursor:pointer;
+    box-shadow:var(--shadow);
+    transition:background .12s ease, transform .12s ease;
+  }
+  .btn-primary:hover{ background:var(--accent-strong); }
+  .btn-primary:active{ transform:translateY(1px); }
+
+  .content{ padding:6px 28px 40px; display:flex; flex-direction:column; gap:18px; }
+
+  /* ---------- Overview card ---------- */
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    box-shadow:var(--shadow);
+  }
+  .overview-head{
+    display:flex; align-items:baseline; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    padding:18px 20px 4px;
+  }
+  .overview-head h2{ font-size:14.5px; font-weight:700; margin:0; }
+  .overview-head h2 .muted{ font-weight:500; color:var(--text-muted); font-size:12.5px; margin-left:4px; }
+  .stat-row{ display:flex; gap:22px; }
+  .stat{ text-align:right; }
+  .stat .v{ font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; font-size:18px; font-weight:600; line-height:1.1; }
+  .stat .l{ font-size:11px; color:var(--text-muted); margin-top:2px; }
+  .stat.warn .v{ color:var(--warn); }
+  .stat.danger .v{ color:var(--danger); }
+
+  .wh-strip{
+    display:flex; gap:8px; overflow-x:auto;
+    padding:14px 20px;
+    scrollbar-width:thin;
+  }
+  .wh-tile{
+    flex:0 0 auto;
+    min-width:84px;
+    border:1px solid var(--border);
+    background:var(--surface-alt);
+    border-radius:10px;
+    padding:9px 10px;
+    cursor:pointer;
+    transition:border-color .12s ease, background .12s ease, transform .1s ease;
+  }
+  .wh-tile:hover{ transform:translateY(-1px); border-color:var(--accent); }
+  .wh-tile.selected{ border-color:var(--accent); background:var(--accent-weak); }
+  .wh-tile .id{ font-weight:700; font-size:13px; }
+  .wh-tile .meta{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-muted); margin-top:3px; }
+  .wh-tile.late{ border-color:var(--danger); background:var(--danger-weak); }
+  .wh-tile.late .meta{ color:var(--danger); font-weight:600; }
+  .wh-tile.live .meta{ color:var(--ok); }
+
+  .notice{
+    margin:0 20px 16px;
+    background:var(--warn-weak);
+    border:1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    color:var(--text);
+    border-radius:10px;
+    padding:10px 14px;
+    font-size:12.5px;
+    display:flex; gap:9px; align-items:flex-start;
+    line-height:1.55;
+  }
+  .notice svg{ flex-shrink:0; margin-top:1px; color:var(--warn); }
+  .notice b{ color:var(--warn); font-weight:700; }
+
+  /* ---------- Table ---------- */
+  .table-card{ overflow:hidden; }
+  .table-scroll{ overflow-x:auto; }
+  table{ border-collapse:collapse; width:100%; min-width:1080px; }
+  thead th{
+    position:sticky; top:0;
+    background:var(--surface-alt);
+    text-align:left;
+    font-size:11.5px;
+    font-weight:600;
+    color:var(--text-muted);
+    letter-spacing:0.02em;
+    padding:10px 14px;
+    border-bottom:1px solid var(--border);
+    white-space:nowrap;
+  }
+  thead tr.group th{
+    border-bottom:1px solid var(--border);
+    text-align:center;
+    color:var(--text-faint);
+  }
+  thead th.qty-sub{ text-align:right; font-size:11px; }
+  tbody td{
+    padding:11px 14px;
+    border-bottom:1px solid var(--border);
+    white-space:nowrap;
+    font-size:13px;
+  }
+  tbody tr:hover td{ background:var(--surface-alt); }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.num, td.qty{ text-align:right; font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; }
+  td.qty-total{ font-weight:600; }
+  td.customer{ color:var(--text); }
+  td.item-no{ font-family:'IBM Plex Mono',monospace; font-weight:500; }
+  td.muted{ color:var(--text-muted); }
+
+  .pill{
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 9px 3px 7px;
+    border-radius:999px;
+    font-size:11.5px; font-weight:600;
+    white-space:nowrap;
+  }
+  .pill::before{ content:""; width:6px; height:6px; border-radius:50%; }
+  .pill.ok{ background:var(--ok-weak); color:var(--ok); }
+  .pill.ok::before{ background:var(--ok); }
+  .pill.new{ background:var(--accent-weak); color:var(--accent-strong); }
+  .pill.new::before{ background:var(--accent); }
+  .pill.review{ background:var(--warn-weak); color:var(--warn); }
+  .pill.review::before{ background:var(--warn); }
+  .pill.missing{ background:var(--danger-weak); color:var(--danger); }
+  .pill.missing::before{ background:var(--danger); }
+
+  .delta{ font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; font-weight:600; }
+  .delta.up{ color:var(--ok); }
+  .delta.down{ color:var(--danger); }
+  .delta.flat{ color:var(--text-faint); font-weight:500; }
+
+  .table-foot{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 20px; font-size:12px; color:var(--text-muted);
+    border-top:1px solid var(--border);
+    flex-wrap:wrap; gap:8px;
+  }
+  .table-foot .src{ display:flex; align-items:center; gap:6px; }
+
+  .empty-row td{ text-align:center; color:var(--text-faint); padding:26px; font-size:13px; }
+
+  /* ---------- Placeholder view ---------- */
+  .placeholder{
+    margin:40px 28px; padding:48px 32px; text-align:center;
+    background:var(--surface); border:1px dashed var(--border); border-radius:14px;
+    color:var(--text-muted); font-size:13.5px;
+  }
+  .placeholder h3{ font-family:'Sora','Noto Sans TC',sans-serif; color:var(--text); margin:0 0 8px; font-size:16px; }
+
+  /* toast */
+  #toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(12px);
+    background:var(--text); color:var(--bg);
+    padding:10px 18px; border-radius:9px; font-size:13px; font-weight:500;
+    opacity:0; pointer-events:none; transition:opacity .18s ease, transform .18s ease;
+    box-shadow:var(--shadow); z-index:50;
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  ::-webkit-scrollbar{ height:8px; width:8px; }
+  ::-webkit-scrollbar-thumb{ background:var(--border); border-radius:8px; }
+
+  button:focus-visible, [tabindex]:focus-visible, input:focus-visible, select:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark"></span>庫存整合系統</div>
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-view="dashboard"><span class="dot"></span>整合看板</button>
+      <button class="nav-item" data-view="form"><span class="dot"></span>庫存整合表單</button>
+      <button class="nav-item" data-view="master"><span class="dot"></span>主檔管理</button>
+      <button class="nav-item" data-view="notify"><span class="dot"></span>通知中心</button>
+      <button class="nav-item" data-view="access"><span class="dot"></span>帳號與權限</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="avatar">林</div>
+      <div class="who">
+        <div class="name">林佩珊</div>
+        <div class="role">管理者・已登入</div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1 id="viewTitle">整合看板</h1>
+      <div class="topbar-controls" id="dashboardControls">
+        <div class="field">
+          <span style="color:var(--text-muted)">資料日期</span>
+          <select id="dateSelect">
+            <option>2026-08-06</option>
+            <option>2026-08-05</option>
+            <option>2026-08-04</option>
+          </select>
+        </div>
+        <div class="field search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+          <input id="searchInput" type="text" placeholder="搜尋料號、客戶料號或客戶…">
+        </div>
+        <button class="btn-primary" id="exportBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+          匯出 Excel
+        </button>
+      </div>
+    </div>
+
+    <div class="content" id="dashboardView">
+      <section class="card">
+        <div class="overview-head">
+          <h2>今日收件狀態<span class="muted">13 家倉庫</span></h2>
+          <div class="stat-row">
+            <div class="stat"><div class="v" id="statTotal">138</div><div class="l">料號總數</div></div>
+            <div class="stat"><div class="v" id="statChanged">26</div><div class="l">今日異動</div></div>
+            <div class="stat danger"><div class="v" id="statBad">4,120</div><div class="l">不良品庫存</div></div>
+          </div>
+        </div>
+        <div class="wh-strip" id="whStrip"></div>
+        <div class="notice">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+          <div><b>H 倉逾時</b>，系統已於 09:00 自動通知承辦人。該倉數量沿用前一日並標示「含未收件」，不會憑空歸零；補件後自動回補。</div>
+        </div>
+      </section>
+
+      <section class="card table-card">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr class="group">
+                <th></th><th></th><th></th><th></th>
+                <th colspan="3">數量</th>
+                <th></th><th></th><th></th><th></th><th></th><th></th>
+              </tr>
+              <tr>
+                <th>入庫時間</th>
+                <th>客戶</th>
+                <th>料號</th>
+                <th>客戶料號</th>
+                <th class="qty-sub">良品</th>
+                <th class="qty-sub">不良品</th>
+                <th class="qty-sub">總計</th>
+                <th>庫存天數</th>
+                <th>DC</th>
+                <th>LOT CODE</th>
+                <th>倉庫</th>
+                <th>前日異動</th>
+                <th>狀態</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot">
+          <span id="tableSummary">共 138 個料號・312 筆倉庫明細</span>
+          <span class="src">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6M9 8h1"/><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/></svg>
+            每一個數字均可回溯至來源檔案
+          </span>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+  const WAREHOUSES = [
+    { id:'A', mode:'email', time:'07:12' },
+    { id:'B', mode:'email', time:'07:26' },
+    { id:'C', mode:'email', time:'07:31' },
+    { id:'D', mode:'email', time:'07:40' },
+    { id:'E', mode:'email', time:'07:58' },
+    { id:'F', mode:'email', time:'08:03' },
+    { id:'G', mode:'email', time:'08:15' },
+    { id:'H', mode:'late',  time:'逾時未收件' },
+    { id:'I', mode:'email', time:'08:22' },
+    { id:'J', mode:'email', time:'08:31' },
+    { id:'K', mode:'email', time:'08:40' },
+    { id:'L', mode:'email', time:'08:47' },
+    { id:'M', mode:'api',   time:'即時更新' },
+  ];
+
+  const ROWS = [
+    ['2026-07-18','華誠電子','MLCC-0603-104K-X7R','HC-C10406',12000,180,19,2628,'K4A2H1','A',2000,'up','ok'],
+    ['2026-06-30','華誠電子','MLCC-0603-104K-X7R','HC-C10406',15000,0,37,2624,'K3F9B2','D',0,'flat','ok'],
+    ['2026-07-24','立揚科技','XTAL-24M-SMD3225','LY-X2400S',26000,0,13,2629,'P8R37C','J',26000,'up','new'],
+    ['2026-05-29','泓宇通訊','LANT-H1102NL','HY-L1102',16200,460,69,2618,'D5K21M','C',-1500,'down','ok'],
+    ['2026-07-02','華誠電子','TVS-SMAJ5.0CA','HC-T50CA',56500,900,35,2625,'M2Q88R','B',8000,'up','ok'],
+    ['2026-07-11','剑隆電子','MCU-STM32F103C8T6','CL-M32F103',0,120,26,2627,'T7B45N','F',-1500,'down','review'],
+    ['2026-06-12','泓宇通訊','GDT-2R090-8','HY-G2R90',3300,0,55,2621,'W1C09J','H',0,'flat','missing'],
+    ['2026-08-02','元捷資訊','SSD-M2-256G-3D','YJ-S256M2',800,15,4,2631,'R9E62K','M',140,'up','ok'],
+    ['2026-07-09','立揚科技','MLCC-0402-105K-X5R','LY-C10504',128000,1400,28,2626,'S4N77A','E',-11000,'down','ok'],
+    ['2026-08-01','冠鑫材料','FUSE-1206-2A-125V','GX-F1206A',9400,60,6,2632,'B3H90L','H',0,'flat','missing'],
+    ['2026-07-27','華誠電子','LED-0805-RED-20MA','HC-L0805R',44000,220,10,2630,'N6Q12F','G',3200,'up','ok'],
+    ['2026-06-21','立揚科技','XTAL-24M-SMD3225','LY-X2400S',7600,0,46,2619,'P7R11X','I',-900,'down','ok'],
+    ['2026-08-03','泓宇通訊','ANT-2G4-PCB-FPC','HY-ANT24',2100,0,3,2633,'C0K44T','K',540,'up','new'],
+    ['2026-07-05','剑隆電子','RES-0603-1K-1%','CL-R0603K',210000,3600,33,2622,'E5V63P','L',-4200,'down','ok'],
+  ];
+
+  const STATUS = {
+    ok:      { label:'正常',     cls:'ok' },
+    new:     { label:'新增',     cls:'new' },
+    review:  { label:'待覆核',   cls:'review' },
+    missing: { label:'含未收件', cls:'missing' },
+  };
+
+  const fmt = n => n.toLocaleString('en-US');
+  const whStrip = document.getElementById('whStrip');
+  const tbody = document.getElementById('tableBody');
+  const tableSummary = document.getElementById('tableSummary');
+  let selectedWh = null;
+
+  function renderWarehouses(){
+    whStrip.innerHTML = '';
+    WAREHOUSES.forEach(w => {
+      const tile = document.createElement('div');
+      tile.className = 'wh-tile' + (w.mode === 'late' ? ' late' : w.mode === 'api' ? ' live' : '') + (selectedWh === w.id ? ' selected' : '');
+      tile.tabIndex = 0;
+      tile.innerHTML = `<div class="id">${w.id} 倉</div><div class="meta">${w.mode === 'email' ? 'Email · ' + w.time : w.mode === 'api' ? 'API · ' + w.time : w.time}</div>`;
+      tile.addEventListener('click', () => {
+        selectedWh = selectedWh === w.id ? null : w.id;
+        renderWarehouses();
+        renderTable();
+      });
+      whStrip.appendChild(tile);
+    });
+  }
+
+  function renderTable(){
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const filtered = ROWS.filter(r => {
+      const matchesWh = !selectedWh || r[9] === selectedWh;
+      const matchesQ = !q || r[2].toLowerCase().includes(q) || r[3].toLowerCase().includes(q) || r[1].toLowerCase().includes(q);
+      return matchesWh && matchesQ;
+    });
+
+    tbody.innerHTML = '';
+    if (filtered.length === 0){
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="13">找不到符合條件的料號，請調整搜尋或倉庫篩選。</td></tr>`;
+    } else {
+      filtered.forEach(r => {
+        const [dt, customer, item, custItem, good, bad, days, dc, lot, wh, delta, dir, statusKey] = r;
+        const total = good + bad;
+        const st = STATUS[statusKey];
+        const deltaCls = dir === 'up' ? 'up' : dir === 'down' ? 'down' : 'flat';
+        const deltaSign = dir === 'up' ? '▲ ' : dir === 'down' ? '▼ ' : '— ';
+        const deltaVal = dir === 'flat' ? '' : fmt(Math.abs(delta));
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="num">${dt}</td>
+          <td class="customer">${customer}</td>
+          <td class="item-no">${item}</td>
+          <td class="num">${custItem}</td>
+          <td class="qty">${fmt(good)}</td>
+          <td class="qty">${bad ? fmt(bad) : '—'}</td>
+          <td class="qty qty-total">${fmt(total)}</td>
+          <td class="num">${days}</td>
+          <td>${dc}</td>
+          <td class="item-no">${lot}</td>
+          <td>${wh} 倉</td>
+          <td class="delta ${deltaCls}">${deltaSign}${deltaVal}</td>
+          <td><span class="pill ${st.cls}">${st.label}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    tableSummary.textContent = selectedWh || q
+      ? `符合條件 ${filtered.length} 筆（全庫共 138 個料號・312 筆倉庫明細）`
+      : '共 138 個料號・312 筆倉庫明細';
+  }
+
+  document.getElementById('searchInput').addEventListener('input', renderTable);
+
+  let toastTimer;
+  function toast(msg){
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    toast('示範版本：正式上線後將匯出目前篩選結果為 .xlsx');
+  });
+
+  const views = {
+    dashboard: { title:'整合看板' },
+    form:      { title:'庫存整合表單', note:'將提供 9 大欄位的人工補登與 DLQ 例外複核介面。' },
+    master:    { title:'主檔管理', note:'將提供 13 倉庫、客戶、DC、料號對照等主檔維護功能。' },
+    notify:    { title:'通知中心', note:'將彙整逾時收件、異常波動等 Alert 通知紀錄。' },
+    access:    { title:'帳號與權限', note:'將提供角色權限與各倉庫資料存取範圍設定。' },
+  };
+
+  document.getElementById('nav').addEventListener('click', e => {
+    const btn = e.target.closest('.nav-item');
+    if (!btn) return;
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const key = btn.dataset.view;
+    const view = views[key];
+    document.getElementById('viewTitle').textContent = view.title;
+    const dashboardControls = document.getElementById('dashboardControls');
+    const dashboardView = document.getElementById('dashboardView');
+    let placeholder = document.getElementById('placeholderView');
+    if (key === 'dashboard'){
+      dashboardControls.style.display = 'flex';
+      dashboardView.style.display = 'flex';
+      if (placeholder) placeholder.remove();
+    } else {
+      dashboardControls.style.display = 'none';
+      dashboardView.style.display = 'none';
+      if (!placeholder){
+        placeholder = document.createElement('div');
+        placeholder.id = 'placeholderView';
+        document.querySelector('.main').appendChild(placeholder);
+      }
+      placeholder.className = 'placeholder';
+      placeholder.innerHTML = `<h3>${view.title}</h3><p>${view.note}</p>`;
+    }
+  });
+
+  renderWarehouses();
+  renderTable();
+})();
+</script>
+</body>
+</html>
