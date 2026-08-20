@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>庫存整合看板 | Demo</title>
+<title>倉庫總覽 | Demo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -234,6 +234,17 @@
   .wh-tile.late{ border-color:var(--danger); background:var(--danger-weak); }
   .wh-tile.late .meta{ color:var(--danger); font-weight:600; }
   .wh-tile.live .meta{ color:var(--ok); }
+  .wh-tile.all-tile{ border-style:dashed; }
+  .wh-tile.all-tile.selected{ border-style:solid; }
+
+  .wh-chip-group{ display:flex; gap:4px; flex-wrap:wrap; }
+  .wh-chip{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:22px; height:22px; padding:0 6px;
+    border-radius:6px; background:var(--surface-alt); border:1px solid var(--border);
+    font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; color:var(--text-muted);
+  }
+  .wh-chip.missing{ background:var(--danger-weak); border-color:transparent; color:var(--danger); }
 
   .notice{
     margin:0 20px 16px;
@@ -251,6 +262,10 @@
 
   /* ---------- Table ---------- */
   .table-card{ overflow:hidden; }
+  .table-mode-label{
+    padding:14px 20px 0; font-size:12.5px; font-weight:600; color:var(--text-muted);
+    display:flex; align-items:center; gap:6px;
+  }
   .table-scroll{ overflow-x:auto; }
   table{ border-collapse:collapse; width:100%; min-width:1080px; }
   thead th{
@@ -353,7 +368,7 @@
   <aside class="sidebar">
     <div class="brand"><span class="brand-mark"></span>庫存整合系統</div>
     <nav class="nav" id="nav">
-      <button class="nav-item active" data-view="dashboard"><span class="dot"></span>整合看板</button>
+      <button class="nav-item active" data-view="overview"><span class="dot"></span>倉庫總覽</button>
       <button class="nav-item" data-view="form"><span class="dot"></span>庫存整合表單</button>
       <button class="nav-item" data-view="master"><span class="dot"></span>主檔管理</button>
       <button class="nav-item" data-view="notify"><span class="dot"></span>通知中心</button>
@@ -370,7 +385,7 @@
 
   <main class="main">
     <div class="topbar">
-      <h1 id="viewTitle">整合看板</h1>
+      <h1 id="viewTitle">倉庫總覽</h1>
       <div class="topbar-controls" id="dashboardControls">
         <div class="field">
           <span style="color:var(--text-muted)">資料日期</span>
@@ -391,7 +406,7 @@
       </div>
     </div>
 
-    <div class="content" id="dashboardView">
+    <div class="content" id="overviewView">
       <section class="card">
         <div class="overview-head">
           <h2>今日收件狀態<span class="muted">13 家倉庫</span></h2>
@@ -408,7 +423,42 @@
         </div>
       </section>
 
-      <section class="card table-card">
+      <section class="card table-card" id="summaryTableCard">
+        <div class="table-mode-label" id="summaryModeLabel">彙總檢視・依料號加總全部 13 家倉庫，點選上方倉庫可切換為單倉明細</div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr class="group">
+                <th></th><th></th><th></th>
+                <th colspan="3">數量</th>
+                <th></th><th></th><th></th>
+              </tr>
+              <tr>
+                <th>料號</th>
+                <th>客戶</th>
+                <th>客戶料號</th>
+                <th class="qty-sub">良品</th>
+                <th class="qty-sub">不良品</th>
+                <th class="qty-sub">總計</th>
+                <th>分布倉庫</th>
+                <th>最長庫存天數</th>
+                <th>狀態</th>
+              </tr>
+            </thead>
+            <tbody id="summaryBody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot">
+          <span id="summarySummary">共 138 個料號</span>
+          <span class="src">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6M9 8h1"/><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/></svg>
+            每一個數字均可回溯至來源檔案
+          </span>
+        </div>
+      </section>
+
+      <section class="card table-card" id="detailTableCard" style="display:none">
+        <div class="table-mode-label" id="detailModeLabel">單倉明細</div>
         <div class="table-scroll">
           <table>
             <thead>
@@ -496,20 +546,106 @@
   const whStrip = document.getElementById('whStrip');
   const tbody = document.getElementById('tableBody');
   const tableSummary = document.getElementById('tableSummary');
+  const summaryBody = document.getElementById('summaryBody');
+  const summarySummary = document.getElementById('summarySummary');
   let selectedWh = null;
+
+  const STATUS_RANK = { missing: 3, review: 2, new: 1, ok: 0 };
+
+  function aggregateByItem(rows){
+    const map = new Map();
+    rows.forEach(r => {
+      const [dt, customer, item, custItem, good, bad, days, dc, lot, wh, delta, dir, statusKey] = r;
+      if (!map.has(item)){
+        map.set(item, {
+          item, customer, custItem, good: 0, bad: 0, maxDays: 0,
+          worstStatus: 'ok', instances: [],
+        });
+      }
+      const agg = map.get(item);
+      agg.good += good;
+      agg.bad += bad;
+      agg.maxDays = Math.max(agg.maxDays, days);
+      if (STATUS_RANK[statusKey] > STATUS_RANK[agg.worstStatus]) agg.worstStatus = statusKey;
+      agg.instances.push({ wh, statusKey });
+    });
+    return Array.from(map.values());
+  }
+
+  function renderSummaryTable(){
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const agg = aggregateByItem(ROWS);
+    const filtered = agg.filter(a =>
+      !q || a.item.toLowerCase().includes(q) || a.custItem.toLowerCase().includes(q) || a.customer.toLowerCase().includes(q)
+    );
+
+    summaryBody.innerHTML = '';
+    if (filtered.length === 0){
+      summaryBody.innerHTML = `<tr class="empty-row"><td colspan="9">找不到符合條件的料號，請調整搜尋條件。</td></tr>`;
+    } else {
+      filtered.forEach(a => {
+        const total = a.good + a.bad;
+        const st = STATUS[a.worstStatus];
+        const chips = a.instances
+          .map(i => `<span class="wh-chip${i.statusKey === 'missing' ? ' missing' : ''}">${i.wh}</span>`)
+          .join('');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="item-no">${a.item}</td>
+          <td class="customer">${a.customer}</td>
+          <td class="num">${a.custItem}</td>
+          <td class="qty">${fmt(a.good)}</td>
+          <td class="qty">${a.bad ? fmt(a.bad) : '—'}</td>
+          <td class="qty qty-total">${fmt(total)}</td>
+          <td><div class="wh-chip-group">${chips}</div></td>
+          <td class="num">${a.maxDays}</td>
+          <td><span class="pill ${st.cls}">${st.label}</span></td>
+        `;
+        summaryBody.appendChild(tr);
+      });
+    }
+    summarySummary.textContent = q
+      ? `符合條件 ${filtered.length} 個料號（全庫共 138 個料號）`
+      : `共 ${agg.length} 個料號（示範資料，正式版對應 138 個料號）`;
+  }
+
+  function updateTableMode(){
+    const summaryCard = document.getElementById('summaryTableCard');
+    const detailCard = document.getElementById('detailTableCard');
+    const detailLabel = document.getElementById('detailModeLabel');
+    if (selectedWh){
+      summaryCard.style.display = 'none';
+      detailCard.style.display = 'block';
+      detailLabel.textContent = `單倉明細・目前篩選：${selectedWh} 倉（點選「全部」卡片可回到跨倉彙總）`;
+    } else {
+      summaryCard.style.display = 'block';
+      detailCard.style.display = 'none';
+    }
+  }
+
+  function selectWarehouse(id){
+    selectedWh = id;
+    renderWarehouses();
+    renderTable();
+    updateTableMode();
+  }
 
   function renderWarehouses(){
     whStrip.innerHTML = '';
+
+    const allTile = document.createElement('div');
+    allTile.className = 'wh-tile all-tile' + (selectedWh === null ? ' selected' : '');
+    allTile.tabIndex = 0;
+    allTile.innerHTML = `<div class="id">全部</div><div class="meta">13 家倉庫彙總</div>`;
+    allTile.addEventListener('click', () => selectWarehouse(null));
+    whStrip.appendChild(allTile);
+
     WAREHOUSES.forEach(w => {
       const tile = document.createElement('div');
       tile.className = 'wh-tile' + (w.mode === 'late' ? ' late' : w.mode === 'api' ? ' live' : '') + (selectedWh === w.id ? ' selected' : '');
       tile.tabIndex = 0;
       tile.innerHTML = `<div class="id">${w.id} 倉</div><div class="meta">${w.mode === 'email' ? 'Email · ' + w.time : w.mode === 'api' ? 'API · ' + w.time : w.time}</div>`;
-      tile.addEventListener('click', () => {
-        selectedWh = selectedWh === w.id ? null : w.id;
-        renderWarehouses();
-        renderTable();
-      });
+      tile.addEventListener('click', () => selectWarehouse(w.id));
       whStrip.appendChild(tile);
     });
   }
@@ -557,7 +693,10 @@
       : '共 138 個料號・312 筆倉庫明細';
   }
 
-  document.getElementById('searchInput').addEventListener('input', renderTable);
+  document.getElementById('searchInput').addEventListener('input', () => {
+    renderTable();
+    renderSummaryTable();
+  });
 
   let toastTimer;
   function toast(msg){
@@ -573,31 +712,28 @@
   });
 
   const views = {
-    dashboard: { title:'整合看板' },
-    form:      { title:'庫存整合表單', note:'將提供 9 大欄位的人工補登與 DLQ 例外複核介面。' },
-    master:    { title:'主檔管理', note:'將提供 13 倉庫、客戶、DC、料號對照等主檔維護功能。' },
-    notify:    { title:'通知中心', note:'將彙整逾時收件、異常波動等 Alert 通知紀錄。' },
-    access:    { title:'帳號與權限', note:'將提供角色權限與各倉庫資料存取範圍設定。' },
+    overview: { title:'倉庫總覽' },
+    form:     { title:'庫存整合表單', note:'將提供 9 大欄位的人工補登與 DLQ 例外複核介面。' },
+    master:   { title:'主檔管理', note:'將提供 13 倉庫、客戶、DC、料號對照等主檔維護功能。' },
+    notify:   { title:'通知中心', note:'將彙整逾時收件、異常波動等 Alert 通知紀錄。' },
+    access:   { title:'帳號與權限', note:'將提供角色權限與各倉庫資料存取範圍設定。' },
   };
 
-  document.getElementById('nav').addEventListener('click', e => {
-    const btn = e.target.closest('.nav-item');
-    if (!btn) return;
-    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const key = btn.dataset.view;
+  function switchView(key){
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === key));
     const view = views[key];
     document.getElementById('viewTitle').textContent = view.title;
     const dashboardControls = document.getElementById('dashboardControls');
-    const dashboardView = document.getElementById('dashboardView');
+    const overviewView = document.getElementById('overviewView');
     let placeholder = document.getElementById('placeholderView');
-    if (key === 'dashboard'){
+
+    overviewView.style.display = key === 'overview' ? 'flex' : 'none';
+
+    if (key === 'overview'){
       dashboardControls.style.display = 'flex';
-      dashboardView.style.display = 'flex';
       if (placeholder) placeholder.remove();
     } else {
       dashboardControls.style.display = 'none';
-      dashboardView.style.display = 'none';
       if (!placeholder){
         placeholder = document.createElement('div');
         placeholder.id = 'placeholderView';
@@ -606,10 +742,18 @@
       placeholder.className = 'placeholder';
       placeholder.innerHTML = `<h3>${view.title}</h3><p>${view.note}</p>`;
     }
+  }
+
+  document.getElementById('nav').addEventListener('click', e => {
+    const btn = e.target.closest('.nav-item');
+    if (!btn) return;
+    switchView(btn.dataset.view);
   });
 
   renderWarehouses();
   renderTable();
+  renderSummaryTable();
+  updateTableMode();
 })();
 </script>
 </body>
