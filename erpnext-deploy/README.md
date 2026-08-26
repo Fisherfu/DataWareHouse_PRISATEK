@@ -46,6 +46,22 @@
   ```
   這組新密碼只存在這台電腦本機的資料庫 volume 裡，**不會**寫進這個 git repo，請自行另外保存（例如存在本機的一個不會被 commit 的檔案）。
 
+## 匯入 13 倉庫採購入庫測試假資料
+
+專案內建自動化假資料生成腳本（對齊 Demo 系統的 13 倉庫、12 種電子零組件與 14 筆採購入庫單）：
+
+```powershell
+# 將腳本複製到容器並執行
+docker compose -f pwd.yml cp create_mock_purchase_receipts.py backend:/home/frappe/frappe-bench/sites/
+docker compose -f pwd.yml exec -w /home/frappe/frappe-bench/sites backend ../env/bin/python create_mock_purchase_receipts.py
+```
+
+執行後會自動建立：
+- **13 倉庫**：A 倉 ~ M 倉
+- **供應商**：華誠電子、立揚科技、泓宇通訊、剑隆電子、元捷資訊、冠鑫材料
+- **料號主檔**：MLCC、XTAL、MCU、SSD、TVS、GDT 等 12 種料號
+- **採購入庫單 (Purchase Receipt)**：14 筆已過帳入庫單據與對應庫存
+
 ## 關閉 Demo
 
 ```powershell
